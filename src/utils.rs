@@ -66,8 +66,10 @@ pub fn idl_type_to_syn_type(
                 (parse_quote!(#name_ident), true)
             }
         },
-        IdlType::Generic(_name) => {
-            panic!("Generic currently not supported")
+        // Handle generic types
+        IdlType::Generic(name) => {
+            let name_ident: syn::Ident = format_ident!("{}", name);
+            (parse_quote!(#name_ident), true)
         }
     }
 }
