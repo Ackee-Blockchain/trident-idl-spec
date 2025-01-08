@@ -97,14 +97,14 @@ pub struct IdlInstructionAccounts {
     pub accounts: Vec<IdlInstructionAccountItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct IdlPda {
     pub seeds: Vec<IdlSeed>,
     #[serde(skip_serializing_if = "is_default")]
     pub program: Option<IdlSeed>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum IdlSeed {
     Const(IdlSeedConst),
@@ -112,17 +112,17 @@ pub enum IdlSeed {
     Account(IdlSeedAccount),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct IdlSeedConst {
     pub value: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct IdlSeedArg {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct IdlSeedAccount {
     pub path: String,
     #[serde(skip_serializing_if = "is_default")]
