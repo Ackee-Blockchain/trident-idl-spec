@@ -77,9 +77,9 @@ pub struct IdlInstructionAccount {
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub docs: Vec<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default", alias = "isMut")]
     pub writable: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default", alias = "isSigner")]
     pub signer: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub optional: bool,
