@@ -11,3 +11,6 @@ description = "Custom implementation of IDL specification for the Trident fuzzin
 serde = { version = "1.0", features = ["derive"] }
 syn = { version = "2", features = ["visit", "full"] }
 quote = "1"
+
+[dev-dependencies]
+serde_json = "1.0"

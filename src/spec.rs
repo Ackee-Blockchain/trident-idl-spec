@@ -1,11 +1,19 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Idl {
+    // New format (v30+)
     #[serde(default, skip_serializing_if = "is_default")]
     pub address: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub metadata: IdlMetadata,
+    // Legacy format (v29) - name and version at root level
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub version: Option<String>,
+    // Common fields
     #[serde(default, skip_serializing_if = "is_default")]
     pub docs: Vec<String>,
     pub instructions: Vec<IdlInstruction>,
@@ -21,10 +29,25 @@ pub struct Idl {
     pub constants: Vec<IdlConst>,
 }
 
+impl Idl {
+    /// Get the program name, handling both v29 (root level) and v30+ (metadata) formats
+    pub fn get_name(&self) -> &str {
+        self.name.as_deref().unwrap_or(&self.metadata.name)
+    }
+
+    /// Get the program version, handling both v29 (root level) and v30+ (metadata) formats
+    pub fn get_version(&self) -> &str {
+        self.version.as_deref().unwrap_or(&self.metadata.version)
+    }
+}
+
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IdlMetadata {
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub version: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub spec: String,
     #[serde(skip_serializing_if = "is_default")]
     pub description: Option<String>,
@@ -129,11 +152,15 @@ pub struct IdlSeedAccount {
     pub account: Option<String>,
 }
 
+/// Account definition - supports both v29 (with embedded type) and v30+ (name + discriminator only)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IdlAccount {
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub discriminator: IdlDiscriminator,
+    /// v29 format has embedded type definition
+    #[serde(default, skip_serializing_if = "is_default", rename = "type")]
+    pub ty: Option<IdlTypeDefTy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -213,9 +240,32 @@ pub struct IdlReprModifier {
     pub align: Option<usize>,
 }
 
+/// Generic type parameter definition - supports both v29 (string) and v30+ (object) formats
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum IdlTypeDefGeneric {
+    /// v29 format: just a string like "T"
+    Simple(String),
+    /// v30+ format: object with kind and name
+    Complex(IdlTypeDefGenericComplex),
+}
+
+impl IdlTypeDefGeneric {
+    /// Get the name of the generic parameter
+    pub fn get_name(&self) -> &str {
+        match self {
+            IdlTypeDefGeneric::Simple(name) => name,
+            IdlTypeDefGeneric::Complex(complex) => match complex {
+                IdlTypeDefGenericComplex::Type { name } => name,
+                IdlTypeDefGenericComplex::Const { name, .. } => name,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-pub enum IdlTypeDefGeneric {
+pub enum IdlTypeDefGenericComplex {
     Type {
         name: String,
     },
@@ -263,9 +313,22 @@ pub enum IdlArrayLen {
     Value(usize),
 }
 
+/// Generic argument used in defined types - supports both v29 and v30+ formats
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum IdlGenericArg {
+    /// v30+ format with explicit kind
+    WithKind(IdlGenericArgWithKind),
+    /// v29 format without kind - just type or generic reference
+    Type {
+        #[serde(rename = "type")]
+        ty: IdlType,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "lowercase")]
-pub enum IdlGenericArg {
+pub enum IdlGenericArgWithKind {
     Type {
         #[serde(rename = "type")]
         ty: IdlType,
@@ -304,25 +367,66 @@ pub enum IdlType {
     I256,
     Bytes,
     String,
+    /// v30+ format
     Pubkey,
+    /// v29 format
+    PublicKey,
     Option(Box<IdlType>),
     Vec(Box<IdlType>),
     Array(Box<IdlType>, IdlArrayLen),
     Generic(String),
+    /// v30+ format: { "defined": { "name": "...", "generics": [...] } }
     Defined(DefinedType),
-    PublicKey,
+    /// v29 format: { "definedWithTypeArgs": { "name": "...", "args": [...] } }
+    DefinedWithTypeArgs(DefinedWithTypeArgs),
 }
 
-// For backwards compatibility with anchor IDL 28/29
+impl IdlType {
+    /// Check if this type represents a public key (either pubkey or publicKey)
+    pub fn is_pubkey(&self) -> bool {
+        matches!(self, IdlType::Pubkey | IdlType::PublicKey)
+    }
+}
+
+/// v30+ format for defined types: { "defined": { "name": "...", "generics": [...] } }
+/// Also supports v29 simple format: { "defined": "TypeName" }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum DefinedType {
+    /// v29 simple format: just a string
     Simple(String),
+    /// v30+ format: object with name and optional generics
     Complex {
         name: String,
         #[serde(default, skip_serializing_if = "is_default")]
         generics: Vec<IdlGenericArg>,
     },
+}
+
+impl DefinedType {
+    /// Get the type name regardless of format
+    pub fn get_name(&self) -> &str {
+        match self {
+            DefinedType::Simple(name) => name,
+            DefinedType::Complex { name, .. } => name,
+        }
+    }
+
+    /// Get the generics if any
+    pub fn get_generics(&self) -> &[IdlGenericArg] {
+        match self {
+            DefinedType::Simple(_) => &[],
+            DefinedType::Complex { generics, .. } => generics,
+        }
+    }
+}
+
+/// v29 format for defined types with generics: { "definedWithTypeArgs": { "name": "...", "args": [...] } }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DefinedWithTypeArgs {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub args: Vec<IdlGenericArg>,
 }
 
 pub type IdlDiscriminator = Vec<u8>;
