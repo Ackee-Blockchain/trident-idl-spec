@@ -5,6 +5,9 @@ format:
 install:
 	cargo install --path .
 
+format-checks:
+	cargo +nightly fmt --check
+
 clippy:
 	cargo clippy -- -D warnings
 

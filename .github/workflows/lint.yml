@@ -1,0 +1,62 @@
+name: Lint crates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: "1.86"
+
+jobs:
+  Lint-Workspace:
+    name: Lint Workspace
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Starting Lint-Workspace"
+
+  lint:
+    name: Lint
+    needs: Lint-Workspace
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v3
+
+
+      - name: Install system packages
+        run: sudo apt-get update && sudo apt-get install -y build-essential libudev-dev protobuf-compiler libprotobuf-dev
+        shell: bash
+
+      - name: Rust Cache
+        id: rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: "trident-idl-spec-lint"
+          key: lint-${{ runner.os }}
+          workspaces: |
+            ./
+
+      - name: Install Rust Toolchain Components
+        run: |
+          rustup install nightly
+          rustup component add rustfmt clippy
+          rustup component add rustfmt clippy --toolchain nightly
+        shell: bash
+
+      - name: Format
+        run: make format-checks
+      - name: Clippy
+        run: make clippy
+      - name: Test
+        run: make test
+
+
+  checks:
+    name: Lint-Workspace (Checks)
+    needs: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Lint Workspace completed successfully"
