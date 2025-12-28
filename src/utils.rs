@@ -2,7 +2,10 @@
 use quote::format_ident;
 use syn::parse_quote;
 
-use crate::{spec::IdlType, DefinedType, IdlArrayLen};
+use crate::spec::IdlType;
+use crate::DefinedType;
+use crate::DefinedWithTypeArgs;
+use crate::IdlArrayLen;
 
 pub fn idl_type_to_syn_type(
     idl_type: &IdlType,
@@ -55,7 +58,7 @@ pub fn idl_type_to_syn_type(
             };
             (parse_quote!([#inner_type;#len]), is_custom)
         }
-        // Handle defined types
+        // Handle defined types (v30+ format and v29 simple format)
         IdlType::Defined(inner) => match inner {
             DefinedType::Simple(name) => {
                 let name_ident: syn::Ident = format_ident!("{}", &name);
@@ -66,6 +69,11 @@ pub fn idl_type_to_syn_type(
                 (parse_quote!(#name_ident), true)
             }
         },
+        // Handle defined types with type args (v29 format)
+        IdlType::DefinedWithTypeArgs(DefinedWithTypeArgs { name, args: _ }) => {
+            let name_ident: syn::Ident = format_ident!("{}", &name);
+            (parse_quote!(#name_ident), true)
+        }
         // Handle generic types
         IdlType::Generic(name) => {
             let name_ident: syn::Ident = format_ident!("{}", name);
