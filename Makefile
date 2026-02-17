@@ -13,3 +13,6 @@ clippy:
 
 test:
 	cargo test
+
+release-workspace:
+	cargo workspaces publish --token $(TOKEN) --publish-as-is
