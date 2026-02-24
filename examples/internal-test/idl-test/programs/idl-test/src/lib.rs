@@ -60,10 +60,12 @@ pub mod idl_test {
 }
 
 #[derive(Accounts)]
+#[instruction(input_u8: u8, input_u16: u16, input_u32: u32, input_u64: u64, input_i8: i8, input_i16: i16, input_i32: i32, input_i64: i128, input_f32: f32, input_f64: f64, input_string: String, input_vec: Vec<u8>, input_vec_string: Vec<String>, input_bool: bool)]
 pub struct Initialize<'info> {
     pub composite_account_nested: NestedInitialize<'info>,
     #[account(mut)]
     pub signer: Signer<'info>,
+    #[account(seeds = [b"data_account_1", input_u8.to_string().as_bytes(),signer.key().as_ref()], bump)]
     pub data_account_1: Account<'info, DataAccount>,
     pub data_account_2: Account<'info, UnitStructAccount>,
     pub data_account_3: Account<'info, TupleStructAccount>,
